@@ -198,10 +198,17 @@ def _stream_in_window(queryset, timestamp_of, start_dt, end_dt):
 # RECORD BUILDING
 # ============================================================================
 
+# Statuses that mean something. Anything else (blank, junk, a value Node-RED
+# has not taught us yet) is treated as not-yet-judged. REWORK is written by the
+# Recheck page and must survive this normalisation, or a rechecked part would
+# read as Pending everywhere and could never be edited again.
+KNOWN_STATUSES = ('OK', 'NG', 'REWORK')
+
+
 def _post_status(post):
     if post is None:
         return 'Pending'
-    return post.status if post.status in ('OK', 'NG') else 'Pending'
+    return post.status if post.status in KNOWN_STATUSES else 'Pending'
 
 
 def build_record(prep, post):
@@ -245,7 +252,9 @@ def get_machine_counts(prep_model, post_model, machine_type='standard'):
         preps = list(prep_model.objects.all()[:COUNTS_SAMPLE_ROWS])
         index = _index_posts_by(post_model, _restrict_for(preps))
         for prep in preps:
-            counts[_post_status(_match_post(index, prep)).lower()] += 1
+            bucket = _post_status(_match_post(index, prep)).lower()
+            # The card has three tiles; a rechecked part is awaiting re-judgement.
+            counts[bucket if bucket in counts else 'pending'] += 1
     except Exception as exc:  # DB hiccup must not take the dashboard down
         print(f'Error getting counts: {exc}')
     return counts

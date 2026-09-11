@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, monitoring_views
+from . import views, monitoring_views, recheck_views
 
 app_name = 'dashboard'
 
@@ -15,4 +15,11 @@ urlpatterns = [
     path('monitoring/search/', monitoring_views.monitoring_search_api, name='monitoring_search_api'),
     path('monitoring/export-excel/', monitoring_views.monitoring_export_excel, name='monitoring_export_excel'),
     path('monitoring/chart-data/', monitoring_views.monitoring_chart_data_api, name='monitoring_chart_data_api'),
+
+    # Recheck - the only write path in the app, all endpoints login-required
+    path('recheck/', recheck_views.recheck_page, name='recheck_page'),
+    path('recheck/api/search/', recheck_views.recheck_search_api, name='recheck_search_api'),
+    path('recheck/api/update/', recheck_views.recheck_update_api, name='recheck_update_api'),
+    path('recheck/api/record/<str:machine_name>/<int:prep_id>/',
+         recheck_views.recheck_get_record_api, name='recheck_get_record_api'),
 ]

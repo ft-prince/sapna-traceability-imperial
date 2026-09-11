@@ -246,7 +246,7 @@ def monitoring_export_excel(request):
 
 def monitoring_chart_data_api(request):
     results = search_monitoring_data(filters_from(request))
-    statuses = ('OK', 'NG', 'Pending')
+    statuses = ('OK', 'NG', 'REWORK', 'Pending')
     by_time = defaultdict(lambda: dict.fromkeys(statuses, 0))
     by_machine = defaultdict(lambda: dict.fromkeys(statuses, 0))
     by_model = defaultdict(lambda: dict.fromkeys(statuses, 0))

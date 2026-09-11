@@ -31,6 +31,10 @@ class _Post(models.Model):
     qr_data = models.CharField(max_length=100)
     status = models.CharField(max_length=20)
     pre_id = models.IntegerField(blank=True, null=True)
+    # Written only by the Recheck page, never by Node-RED. Added to the plant
+    # schema by hand (see README); the models stay managed = False.
+    last_updated_by = models.CharField(max_length=150, blank=True, null=True)
+    last_updated_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         abstract = True
@@ -80,3 +84,31 @@ class HeliumPostprocessing(_Post):
     class Meta(_Post.Meta):
         managed = False
         db_table = 'helium_postprocessing'
+
+
+class OperatorAssignment(models.Model):
+    """
+    Restricts an operator to a subset of stations on the Recheck page.
+
+    `machines` holds ids from permissions.get_all_machines(). Machines are
+    config dicts in views.py, not database rows, so ids are stored as plain
+    strings rather than as a ForeignKey.
+
+    No row for a user means unrestricted, so existing logins keep working.
+    A row with an empty list locks the operator out of every station.
+    """
+    user = models.OneToOneField(
+        'auth.User', on_delete=models.CASCADE, related_name='operator_assignment',
+    )
+    machines = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        managed = True          # the one app-owned table; everything else is Node-RED's
+        db_table = 'operator_assignment'
+        ordering = ['user__username']
+        verbose_name = 'Access Control - Operator Station'
+        verbose_name_plural = 'Access Control - Operator Stations'
+
+    def __str__(self):
+        return f'{self.user.username}: {len(self.machines or [])} stations'

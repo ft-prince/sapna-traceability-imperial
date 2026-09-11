@@ -1,0 +1,306 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Recheck - SAPNA Traceability - Imperial{% endblock %}
+
+{% block content %}
+<style>
+    .recheck-header { display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 3px solid var(--brand); }
+    .recheck-title { font-size: 2rem; color: var(--brand); font-weight: 700; }
+    .panel { background: var(--white); padding: 2rem; border-radius: 12px;
+        box-shadow: 0 4px 6px var(--shadow); margin-bottom: 2rem; }
+    .panel-title { font-size: 1.3rem; color: var(--brand); margin-bottom: 1.5rem; font-weight: 600; }
+    .filter-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem; margin-bottom: 1rem; }
+    .filter-group { display: flex; flex-direction: column; gap: 0.5rem; }
+    .filter-label { font-weight: 600; color: var(--dark-gray); font-size: 0.9rem; }
+    .filter-input, .filter-select { padding: 0.75rem; border: 2px solid var(--medium-gray);
+        border-radius: 8px; font-size: 1rem; }
+    .filter-input:focus, .filter-select:focus { outline: none; border-color: var(--brand-light);
+        box-shadow: 0 0 0 3px rgba(46, 49, 146, 0.1); }
+    .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-size: 1rem;
+        font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn-primary { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%); color: var(--white); }
+    .btn-secondary { background: var(--light-gray); color: var(--brand); border: 2px solid var(--brand); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .results-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .results-table th { padding: 0.9rem; text-align: left; font-weight: 600; color: var(--brand);
+        background: var(--light-gray); border-bottom: 2px solid var(--medium-gray); }
+    .results-table td { padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--medium-gray); }
+    .results-table tbody tr:hover { background: var(--light-gray); }
+    .status-rework { background: rgba(255, 153, 51, 0.12); color: #e65100; border: 1px solid #e65100; }
+    .audit-cell { font-size: 0.8rem; color: var(--dark-gray); line-height: 1.4; }
+    .audit-none { color: #aaa; font-style: italic; }
+    .locked { color: #aaa; font-size: 0.85rem; }
+    .no-results, .loading-spinner { text-align: center; padding: 3rem; color: var(--dark-gray); }
+    .spinner { border: 4px solid var(--light-gray); border-top: 4px solid var(--brand);
+        border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .modal-card { background: var(--white); margin: auto; padding: 2rem; border-radius: 12px;
+        width: 90%; max-width: 640px; max-height: 90vh; overflow-y: auto; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem; margin: 1rem 0; }
+    .detail-item { background: var(--light-gray); padding: 0.75rem; border-radius: 8px; }
+    .detail-label { font-size: 0.75rem; color: var(--dark-gray); font-weight: 600; text-transform: uppercase; }
+    .detail-value { font-size: 0.95rem; color: var(--text-dark); font-weight: 600; margin-top: 0.25rem; }
+    .audit-box { background: rgba(46, 49, 146, 0.06); border-left: 4px solid var(--brand);
+        padding: 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.9rem; line-height: 1.7; }
+    .toast { position: fixed; bottom: 2rem; right: 2rem; padding: 1rem 1.5rem; border-radius: 8px;
+        color: var(--white); font-weight: 600; z-index: 10000; display: none; }
+    .toast-ok { background: var(--success-green); }
+    .toast-err { background: var(--danger-red); }
+</style>
+
+<div class="recheck-header">
+    <h1 class="recheck-title">🔁 Recheck Management</h1>
+    <div style="text-align: right; font-size: 0.85rem; color: var(--dark-gray);">
+        Signed in as <strong>{{ user.username }}</strong><br>
+        Editable statuses: <strong>{{ editable_statuses }}</strong>
+    </div>
+</div>
+
+<div class="panel">
+    <h2 class="panel-title">⚙️ Find Records</h2>
+    <form id="filterForm" onsubmit="event.preventDefault(); searchRecords();">
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="filter-label" for="qr_code">🔍 QR Code</label>
+                <input type="text" class="filter-input" id="qr_code" placeholder="Search QR code...">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="machine">🏭 Station</label>
+                <select class="filter-select" id="machine">
+                    <option value="all">All My Stations</option>
+                    {% for machine in machines %}<option value="{{ machine.id }}">{{ machine.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="model_name">📦 Model</label>
+                <select class="filter-select" id="model_name">
+                    <option value="all">All Models</option>
+                    {% for model in model_names %}<option value="{{ model }}">{{ model }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="status">✅ Status</label>
+                <select class="filter-select" id="status">
+                    <option value="all">All Status</option>
+                    {% for value, label in status_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                    <option value="Pending">Pending</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="start_date">📅 From</label>
+                <input type="date" class="filter-input" id="start_date">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="end_date">📅 To</label>
+                <input type="date" class="filter-input" id="end_date">
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">🔎 Search Records</button>
+            <button type="button" class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+        </div>
+    </form>
+</div>
+
+<div class="panel">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 1.1rem; color: var(--dark-gray); font-weight: 600;">
+            Found <span id="resultsCount" style="color: var(--brand); font-size: 1.4rem;">0</span> records
+        </div>
+    </div>
+    <div id="resultsContainer">
+        <div class="no-results"><div style="font-size: 3rem;">🔁</div><p>Search to list records.</p></div>
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-card">
+        <span class="modal-close" onclick="closeEditModal()">&times;</span>
+        <h2 style="color: var(--brand); margin-bottom: 0.5rem;">Recheck Record</h2>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block scripts %}
+{{ status_options|json_script:"statusOptions" }}
+<script>
+const STATUS_OPTIONS = JSON.parse(document.getElementById('statusOptions').textContent);
+const RECHECK_VALUE = '{{ recheck_value }}';
+let currentResults = [];
+let currentRecord = null;
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// Server sends ISO-8601, or '' when the stored timestamp could not be parsed.
+function formatTimestamp(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? '-' : d.toLocaleString('en-GB');
+}
+function statusBadge(status, label) {
+    const cls = status === 'OK' ? 'status-ok' : status === 'NG' ? 'status-ng'
+        : status === RECHECK_VALUE ? 'status-rework' : 'status-inprogress';
+    return `<span class="status-badge ${cls}">${escapeHtml(label || status)}</span>`;
+}
+function auditCell(record) {
+    if (!record.last_updated_by || !record.last_updated_at) {
+        return '<span class="audit-none">Never changed</span>';
+    }
+    return `<div class="audit-cell"><strong>${escapeHtml(record.last_updated_by)}</strong><br>${formatTimestamp(record.last_updated_at)}</div>`;
+}
+
+function buildParams() {
+    const params = new URLSearchParams();
+    for (const id of ['qr_code', 'machine', 'model_name', 'status', 'start_date', 'end_date']) {
+        const value = document.getElementById(id).value;
+        if (value) params.append(id, value);
+    }
+    return params;
+}
+function clearFilters() {
+    document.getElementById('filterForm').reset();
+    currentResults = [];
+    document.getElementById('resultsCount').textContent = '0';
+    document.getElementById('resultsContainer').innerHTML =
+        '<div class="no-results"><div style="font-size: 3rem;">🔁</div><p>Search to list records.</p></div>';
+}
+
+function searchRecords() {
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Searching...</p></div>';
+    fetch(`/recheck/api/search/?${buildParams()}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.error || 'search failed');
+            currentResults = data.results;
+            displayResults(data.results);
+            document.getElementById('resultsCount').textContent = data.count;
+        })
+        .catch(err => {
+            console.error(err);
+            container.innerHTML = '<div class="no-results"><div style="font-size: 3rem;">❌</div><p>Error loading records</p></div>';
+        });
+}
+
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-results"><div style="font-size: 3rem;">📭</div><p>No records match those filters.</p></div>';
+        return;
+    }
+    let html = `<table class="results-table"><thead><tr>
+        <th>ID</th><th>Station</th><th>QR Code</th><th>Model</th>
+        <th>Judged</th><th>Status</th><th>Last changed</th><th></th>
+    </tr></thead><tbody>`;
+    results.forEach((r, i) => {
+        html += `<tr>
+            <td>${r.prep_id}</td>
+            <td><strong>${escapeHtml(r.display_name)}</strong></td>
+            <td><strong>${escapeHtml(r.qr_code)}</strong></td>
+            <td>${escapeHtml(r.model_name)}</td>
+            <td>${formatTimestamp(r.post_timestamp || r.timestamp)}</td>
+            <td>${statusBadge(r.status, r.status_label)}</td>
+            <td>${auditCell(r)}</td>
+            <td>${r.editable
+                ? `<button class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;" onclick="openEditModal(${i})">Recheck</button>`
+                : '<span class="locked">Locked</span>'}</td>
+        </tr>`;
+    });
+    container.innerHTML = html + '</tbody></table>';
+}
+
+function openEditModal(index) {
+    const row = currentResults[index];
+    const modal = document.getElementById('editModal');
+    const body = document.getElementById('modalBody');
+    body.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Loading record...</p></div>';
+    modal.style.display = 'flex';
+
+    fetch(`/recheck/api/record/${row.machine_id}/${row.prep_id}/`)
+        .then(async r => {
+            const data = await r.json();
+            if (r.status === 403) throw new Error(data.error);
+            if (!data.success) throw new Error(data.error || 'could not load record');
+            return data.record;
+        })
+        .then(record => { currentRecord = record; renderEditForm(record); })
+        .catch(err => { body.innerHTML = `<p style="color: var(--danger-red);">${escapeHtml(err.message)}</p>`; });
+}
+
+function renderEditForm(record) {
+    const item = (label, value) => `<div class="detail-item"><div class="detail-label">${label}</div><div class="detail-value">${escapeHtml(value ?? '-')}</div></div>`;
+    const audit = (record.last_updated_by && record.last_updated_at)
+        ? `Last changed by <strong>${escapeHtml(record.last_updated_by)}</strong><br>on ${formatTimestamp(record.last_updated_at)}`
+        : 'This record has never been changed.';
+
+    const options = STATUS_OPTIONS.map(
+        ([value, label]) => `<option value="${value}" ${value === record.status ? 'selected' : ''}>${label}</option>`
+    ).join('');
+
+    document.getElementById('modalBody').innerHTML = `
+        <div class="detail-grid">
+            ${item('Station', record.display_name)}
+            ${item('QR Code', record.qr_code)}
+            ${item('Model', record.model_name)}
+            ${item('Loaded', formatTimestamp(record.timestamp))}
+            ${item('Judged', formatTimestamp(record.post_timestamp))}
+            ${item('Previous machine', record.previous_machine_status)}
+        </div>
+        <div class="audit-box">📜 ${audit}</div>
+        <div class="filter-group">
+            <label class="filter-label" for="newStatus">New status</label>
+            <select class="filter-select" id="newStatus">${options}</select>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+            <button class="btn btn-primary" style="flex: 1;" id="saveBtn" onclick="saveChanges()">💾 Save change</button>
+            <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        </div>`;
+}
+
+function saveChanges() {
+    const button = document.getElementById('saveBtn');
+    button.disabled = true;
+    fetch('/recheck/api/update/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            machine_id: currentRecord.machine_id,
+            prep_id: currentRecord.prep_id,
+            status: document.getElementById('newStatus').value,
+        }),
+    })
+        .then(async r => {
+            const data = await r.json();
+            if (!data.success) throw new Error(data.error || `HTTP ${r.status}`);
+            return data;
+        })
+        .then(data => {
+            showToast(`Saved. ${data.previous_status} → ${data.new_status_label}, by ${data.updated_by}`, true);
+            closeEditModal();
+            searchRecords();
+        })
+        .catch(err => { button.disabled = false; showToast(err.message, false); });
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    currentRecord = null;
+}
+function showToast(message, ok) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast ${ok ? 'toast-ok' : 'toast-err'}`;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 5000);
+}
+window.onclick = e => { if (e.target === document.getElementById('editModal')) closeEditModal(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+document.addEventListener('DOMContentLoaded', searchRecords);
+</script>
+{% endblock %}

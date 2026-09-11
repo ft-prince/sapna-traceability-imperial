@@ -1,7 +1,9 @@
 # SAPNA Traceability - Imperial
 
 Read-only Django viewer over the `trace` schema written by Node-RED (Postgres 17).
-Pages: `/` (live dashboard, SSE) and `/monitoring/` (search, Excel export, charts). `/admin/` needs a login.
+Pages: `/` (live dashboard, SSE), `/monitoring/` (search, Excel export, charts) and
+`/recheck/` (login-only; change a failed record's status, with an audit trail).
+`/admin/` and `/recheck/` need a login.
 
 ## Run on the plant PC (Windows)
 
@@ -31,4 +33,29 @@ venv\Scripts\python test_machine_data.py
 venv\Scripts\python test_monitoring_export.py
 ```
 
-`sample_data.py` seeds a LOCAL copy only - never run it against the plant database.
+`sample_data.py` and `demo_feed.py` write to a LOCAL copy only - never run them
+against the plant database.
+
+## Recheck page - one-off schema change
+
+The Recheck page stamps who changed a record and when. Those two columns are not
+in the original plant schema, so run this ONCE on the plant database before
+deploying (machine models are `managed = False`, so Django cannot add them):
+
+```sql
+ALTER TABLE trace.ci_postprocessing     ADD COLUMN last_updated_by varchar(150), ADD COLUMN last_updated_at timestamp;
+ALTER TABLE trace.auto_postprocessing   ADD COLUMN last_updated_by varchar(150), ADD COLUMN last_updated_at timestamp;
+ALTER TABLE trace.helium_postprocessing ADD COLUMN last_updated_by varchar(150), ADD COLUMN last_updated_at timestamp;
+```
+
+Node-RED never writes these columns; only the Recheck page does.
+
+Rules the page enforces:
+
+- Only `NG` and `REWORK` records can be changed. An `OK` part, or one the machine
+  has not judged yet, is rejected with HTTP 409.
+- Choosing "RECHECK" stores the literal `REWORK`, so any Node-RED flow comparing
+  against `'REWORK'` keeps working. Operators only ever see the word RECHECK.
+- Operators are limited to stations assigned under
+  Admin -> Access Control - Operator Stations. No assignment row means
+  unrestricted; a row with zero stations locks the operator out entirely.

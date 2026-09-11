@@ -16,6 +16,7 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
+from django.db import connection  # noqa: E402
 from tracebility import models  # noqa: E402
 
 ROWS = int(sys.argv[1]) if len(sys.argv) > 1 else 3000
@@ -27,6 +28,16 @@ MACHINES = [
     ('Autofatash', models.AutoPreprocessing, models.AutoPostprocessing, 1, 1),
     ('Helium Station', models.HeliumPreprocessing, models.HeliumPostprocessing, 1, 0),
 ]
+
+
+def resync_sequences(*models):
+    """Point each table's id sequence at MAX(id) after inserting explicit ids."""
+    with connection.cursor() as cur:
+        for model in models:
+            table = model._meta.db_table
+            cur.execute(
+                f"SELECT setval(pg_get_serial_sequence('trace.{table}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM trace.{table}), 1), true)")
 
 
 def seed(name, prep_model, post_model, multiplier, is_auto):
@@ -56,6 +67,9 @@ def seed(name, prep_model, post_model, multiplier, is_auto):
                                 qr_data=qr, status=status, pre_id=next_pre_id + i, **post_extra))
     prep_model.objects.bulk_create(preps, batch_size=2000)
     post_model.objects.bulk_create(posts, batch_size=2000)
+    # bulk_create with explicit ids leaves the sequence behind, so the next
+    # ordinary INSERT would collide on the primary key.
+    resync_sequences(prep_model, post_model)
     print(f'{name}: +{len(preps)} prep, +{len(posts)} post -> {prep_model.objects.count()} / {post_model.objects.count()}')
 
 
