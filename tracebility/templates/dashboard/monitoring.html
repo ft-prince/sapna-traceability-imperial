@@ -1,0 +1,711 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}Monitoring - SAPNA Traceability - Imperial{% endblock %}
+
+{% block content %}
+<style>
+    .monitoring-container {
+        max-width: 100%;
+        padding: 2rem;
+    }
+
+    .monitoring-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid var(--brand);
+    }
+
+    .monitoring-title {
+        font-size: 2rem;
+        color: var(--brand);
+        font-weight: 700;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+        color: var(--white);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px var(--shadow);
+    }
+
+    .btn-secondary {
+        background: var(--light-gray);
+        color: var(--brand);
+        border: 2px solid var(--brand);
+    }
+
+    .btn-secondary:hover {
+        background: var(--brand);
+        color: var(--white);
+    }
+
+    .filters-section {
+        background: var(--white);
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px var(--shadow);
+        margin-bottom: 2rem;
+    }
+
+    .filters-title {
+        font-size: 1.3rem;
+        color: var(--brand);
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+    }
+
+    .filter-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-label {
+        font-weight: 600;
+        color: var(--dark-gray);
+        font-size: 0.9rem;
+    }
+
+    .filter-input, .filter-select {
+        padding: 0.75rem;
+        border: 2px solid var(--medium-gray);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+
+    .filter-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--brand-light);
+        box-shadow: 0 0 0 3px rgba(46, 49, 146, 0.1);
+    }
+
+    .time-filters {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .time-filter-btn {
+        padding: 0.6rem 1.2rem;
+        background: var(--white);
+        color: var(--brand);
+        border: 2px solid var(--medium-gray);
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .time-filter-btn:hover {
+        border-color: var(--brand);
+        background: var(--brand-pale);
+        color: var(--white);
+    }
+
+    .time-filter-btn.active {
+        background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+        color: var(--white);
+        border-color: var(--brand);
+    }
+
+    .custom-range-toggle {
+        color: var(--brand);
+        text-decoration: underline;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    .custom-date-range {
+        display: none;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 2px solid var(--medium-gray);
+    }
+
+    .custom-date-range.active {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .results-section {
+        background: var(--white);
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px var(--shadow);
+        margin-bottom: 2rem;
+    }
+
+    .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .results-count {
+        font-size: 1.2rem;
+        color: var(--dark-gray);
+        font-weight: 600;
+    }
+
+    .results-count span {
+        color: var(--brand);
+        font-size: 1.5rem;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 3rem;
+        color: var(--dark-gray);
+    }
+
+    .spinner {
+        border: 4px solid var(--light-gray);
+        border-top: 4px solid var(--brand);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 3rem;
+        color: var(--dark-gray);
+    }
+
+    .no-results-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    .results-table thead {
+        background: var(--light-gray);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .results-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--brand);
+        border-bottom: 2px solid var(--medium-gray);
+    }
+
+    .results-table td {
+        padding: 0.875rem 1rem;
+        border-bottom: 1px solid var(--medium-gray);
+    }
+
+    .results-table tbody tr {
+        transition: background 0.2s;
+    }
+
+    .results-table tbody tr:hover {
+        background: var(--light-gray);
+    }
+
+    .chart-modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+    }
+
+    .chart-modal-content {
+        background-color: var(--white);
+        margin: 2% auto;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 1200px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .chart-close {
+        color: var(--dark-gray);
+        float: right;
+        font-size: 2rem;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .chart-close:hover {
+        color: var(--danger-red);
+    }
+
+    .chart-container {
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background: var(--light-gray);
+        border-radius: 8px;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        color: var(--brand);
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .summary-card {
+        background: var(--white);
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px var(--shadow);
+        text-align: center;
+    }
+
+    .summary-card-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-card-label {
+        font-size: 0.9rem;
+        color: var(--dark-gray);
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .summary-card.ok .summary-card-value {
+        color: var(--success-green);
+    }
+
+    .summary-card.ng .summary-card-value {
+        color: var(--danger-red);
+    }
+
+    .summary-card.pending .summary-card-value {
+        color: var(--warning-orange);
+    }
+
+    .summary-card.total .summary-card-value {
+        color: var(--brand);
+    }
+</style>
+<style>
+    .expandable-row {
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .expandable-row:hover {
+        background: var(--brand-pale) !important;
+    }
+    
+    .details-row {
+        display: none;
+        background: #f8f9fa;
+    }
+    
+    .details-row.active {
+        display: table-row;
+    }
+    
+    .details-content {
+        padding: 1.5rem;
+        border-left: 4px solid var(--brand);
+    }
+    
+    .details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .detail-item {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid var(--medium-gray);
+    }
+    
+    .detail-label {
+        font-size: 0.85rem;
+        color: var(--dark-gray);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+    }
+    
+    .detail-value {
+        font-size: 1rem;
+        color: var(--brand);
+        font-weight: 600;
+    }
+    
+    .gauge-values {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .gauge-value-item {
+        background: var(--light-gray);
+        padding: 0.5rem;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    .gauge-value-label {
+        font-size: 0.75rem;
+        color: var(--dark-gray);
+        margin-bottom: 0.25rem;
+    }
+    
+    .gauge-value-number {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--brand);
+    }
+    
+    .expand-icon {
+        display: inline-block;
+        transition: transform 0.3s;
+        margin-right: 0.5rem;
+    }
+    
+    .expand-icon.active {
+        transform: rotate(90deg);
+    }
+</style>
+
+<div class="monitoring-container">
+    <div class="monitoring-header">
+        <h1 class="monitoring-title">📊 Production Monitoring</h1>
+        <div class="action-buttons">
+            <button class="btn btn-secondary" onclick="viewCharts()">📈 View Charts</button>
+            <button class="btn btn-primary" onclick="exportToExcel()">📥 Export to Excel</button>
+        </div>
+    </div>
+
+    <div class="filters-section">
+        <h2 class="filters-title">⚙️ Filters & Search</h2>
+        <div class="filter-group">
+            <label class="filter-label">⏱️ Time Range</label>
+            <div class="time-filters">
+                <button class="time-filter-btn active" data-filter="15min">Last 15 min</button>
+                <button class="time-filter-btn" data-filter="30min">Last 30 min</button>
+                <button class="time-filter-btn" data-filter="1hour">Last 1 hour</button>
+                <button class="time-filter-btn" data-filter="2hour">Last 2 hours</button>
+                <button class="time-filter-btn" data-filter="4hour">Last 4 hours</button>
+                <button class="time-filter-btn" data-filter="6hour">Last 6 hours</button>
+                <button class="time-filter-btn" data-filter="12hour">Last 12 hours</button>
+                <button class="time-filter-btn" data-filter="24hour">Last 24 hours</button>
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 1rem; align-items: center;">
+                <div class="filter-group" style="flex: 0 0 auto; margin: 0;">
+                    <label class="filter-label">🕐 Custom Hours</label>
+                    <input type="number" class="filter-input" id="customHours" placeholder="Hours" min="1" max="8760" style="width: 120px;">
+                </div>
+                <button class="btn btn-secondary" onclick="applyCustomHours()" style="margin-top: 1.5rem;">Apply</button>
+            </div>
+            <div class="custom-range-toggle" onclick="toggleCustomRange()">📅 Use Custom Date Range</div>
+            <div class="custom-date-range" id="customDateRange">
+                <div class="filter-group" style="flex: 1;"><label class="filter-label">Start Date</label><input type="date" class="filter-input" id="startDate"></div>
+                <div class="filter-group" style="flex: 1;"><label class="filter-label">End Date</label><input type="date" class="filter-input" id="endDate"></div>
+                <button class="btn btn-primary" onclick="searchRecords()">Apply</button>
+            </div>
+        </div>
+
+        <div class="filter-row">
+            <div class="filter-group">
+                <label class="filter-label">🔍 QR Code</label>
+                <input type="text" class="filter-input" id="qrCodeInput" placeholder="Search QR code...">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">🏭 Machine</label>
+                <select class="filter-select" id="machineSelect">
+                    <option value="all">All Machines</option>
+                    {% for machine in machines %}<option value="{{ machine.id }}">{{ machine.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">📦 Model</label>
+                <select class="filter-select" id="modelSelect">
+                    <option value="all">All Models</option>
+                    {% for model in model_names %}<option value="{{ model }}">{{ model }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">✅ Status</label>
+                <select class="filter-select" id="statusSelect">
+                    <option value="all">All Status</option>
+                    <option value="OK">OK</option>
+                    <option value="NG">NG</option>
+                    <option value="Pending">Pending</option>
+                </select>
+            </div>
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <button class="btn btn-primary" onclick="searchRecords()" style="width: 100%;">🔎 Search Records</button>
+        </div>
+    </div>
+
+    <div class="results-section">
+        <div class="results-header">
+            <div class="results-count">Found <span id="resultsCount">0</span> records</div>
+        </div>
+        <div id="resultsContainer">
+            <div class="loading-spinner"><div class="spinner"></div><p>Loading data...</p></div>
+        </div>
+    </div>
+</div>
+
+<div id="chartModal" class="chart-modal">
+    <div class="chart-modal-content">
+        <span class="chart-close" onclick="closeChartModal()">&times;</span>
+        <h2 style="color: var(--brand); margin-bottom: 2rem;">📊 Production Charts</h2>
+        <div class="summary-cards" id="summaryCards"></div>
+        <div class="chart-container"><h3 class="chart-title">⏰ Status Over Time</h3><canvas id="timeSeriesChart"></canvas></div>
+        <div class="chart-container"><h3 class="chart-title">🏭 Machine Breakdown</h3><canvas id="machineChart"></canvas></div>
+        <div class="chart-container"><h3 class="chart-title">📦 Model Breakdown</h3><canvas id="modelChart"></canvas></div>
+    </div>
+</div>
+
+<script>
+let currentTimeFilter = '15min';
+let currentResults = [];
+
+document.addEventListener('DOMContentLoaded', function () {
+    searchRecords();
+    document.querySelectorAll('.time-filter-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentTimeFilter = this.dataset.filter;
+            document.getElementById('customDateRange').classList.remove('active');
+            searchRecords();
+        });
+    });
+    document.getElementById('qrCodeInput').addEventListener('keypress', e => { if (e.key === 'Enter') searchRecords(); });
+});
+
+function toggleCustomRange() {
+    const customRange = document.getElementById('customDateRange');
+    customRange.classList.toggle('active');
+    if (customRange.classList.contains('active')) {
+        document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+    }
+}
+function applyCustomHours() {
+    const hours = parseInt(document.getElementById('customHours').value, 10);
+    if (!hours || hours <= 0) return;
+    document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('customDateRange').classList.remove('active');
+    currentTimeFilter = `${hours}hour`;
+    searchRecords();
+}
+
+// ONE builder for search, export and charts, so all three see identical filters.
+function buildParams() {
+    const params = new URLSearchParams();
+    const qrCode = document.getElementById('qrCodeInput').value;
+    const machine = document.getElementById('machineSelect').value;
+    const model = document.getElementById('modelSelect').value;
+    const status = document.getElementById('statusSelect').value;
+    if (qrCode) params.append('qr_code', qrCode);
+    if (machine) params.append('machine', machine);
+    if (model) params.append('model_name', model);
+    if (status) params.append('status', status);
+    if (document.getElementById('customDateRange').classList.contains('active')) {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+    } else {
+        params.append('time_filter', currentTimeFilter);
+    }
+    return params;
+}
+
+function searchRecords() {
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Searching...</p></div>';
+    fetch(`/monitoring/search/?${buildParams()}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.error || 'search failed');
+            currentResults = data.results;
+            displayResults(data.results);
+            document.getElementById('resultsCount').textContent = data.count;
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            container.innerHTML = '<div class="no-results"><div class="no-results-icon">❌</div><p>Error loading data</p></div>';
+        });
+}
+function exportToExcel() {
+    window.location.href = `/monitoring/export-excel/?${buildParams()}`;
+}
+
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// Server sends ISO-8601 ('' when the stored timestamp was unparseable); guard new Date().
+function splitTimestamp(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return ['-', '-'];
+    return [d.toLocaleDateString('en-GB'), d.toLocaleTimeString('en-GB')];
+}
+
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-results"><div class="no-results-icon">📭</div><p>No records found matching your criteria</p></div>';
+        return;
+    }
+    let html = `
+        <table class="results-table" id="resultsTable">
+            <thead><tr>
+                <th width="50"></th><th>ID</th><th>Machine</th><th>Type</th><th>QR Code</th><th>Model</th><th>Date</th><th>Time</th><th>Status</th>
+            </tr></thead><tbody>`;
+    results.forEach((record, index) => {
+        const [date, time] = splitTimestamp(record.timestamp);
+        const rowClass = record.status === 'OK' ? 'completed-ok' : record.status === 'NG' ? 'completed-ng' : 'in-progress';
+        const rowId = `row-${index}`;
+        html += `
+            <tr class="expandable-row ${rowClass} result-row" data-qr="${escapeHtml(record.qr_code)}" data-ts="${escapeHtml(record.timestamp)}" onclick="toggleDetails('${rowId}')">
+                <td><span class="expand-icon" id="icon-${rowId}">▶</span></td>
+                <td>${record.prep_id ?? '-'}</td>
+                <td><strong>${escapeHtml(record.display_name)}</strong></td>
+                <td><span class="machine-type-badge type-${record.machine_type}">${escapeHtml(record.machine_type)}</span></td>
+                <td><strong>${escapeHtml(record.qr_code)}</strong></td>
+                <td>${escapeHtml(record.model_name || 'N/A')}</td>
+                <td class="cell-date">${date}</td>
+                <td class="cell-time">${time}</td>
+                <td><span class="status-badge status-${record.status.toLowerCase()}">${record.status}</span></td>
+            </tr>
+            <tr class="details-row" id="details-${rowId}"><td colspan="9"><div class="details-content">${getDetailsHTML(record)}</div></td></tr>`;
+    });
+    container.innerHTML = html + '</tbody></table>';
+}
+function toggleDetails(rowId) {
+    document.getElementById(`details-${rowId}`).classList.toggle('active');
+    document.getElementById(`icon-${rowId}`).classList.toggle('active');
+}
+function getDetailsHTML(record) {
+    const item = (label, value) => `<div class="detail-item"><div class="detail-label">${label}</div><div class="detail-value">${escapeHtml(value ?? '-')}</div></div>`;
+    const [postDate, postTime] = splitTimestamp(record.post_timestamp);
+    let html = '<div class="details-grid">'
+        + item('📝 Prep ID', record.prep_id) + item('📝 Post ID', record.post_id)
+        + item('🏭 Machine', record.display_name) + item('🔍 QR Code', record.qr_code)
+        + item('📦 Model', record.model_name) + item('⬅️ Previous Machine', record.previous_machine_status)
+        + item('📤 Judged At', record.post_timestamp ? `${postDate} ${postTime}` : 'Pending')
+        + item('✅ Result', record.status);
+    if (record.machine_type === 'auto') {
+        html += item('🧺 Batch ID', record.batch_id) + item('🔢 Batch Size', record.batch_size) + item('🎯 Slot No', record.slot_no);
+    }
+    return html + '</div>';
+}
+
+// ---------------- charts ----------------
+function viewCharts() {
+    document.getElementById('chartModal').style.display = 'flex';
+    fetch(`/monitoring/chart-data/?${buildParams()}`)
+        .then(r => r.json())
+        .then(data => { if (data.success) renderCharts(data.data); })
+        .catch(err => console.error('Error:', err));
+}
+function closeChartModal() {
+    document.getElementById('chartModal').style.display = 'none';
+}
+const STATUS_COLORS = { ok: '#00cc66', ng: '#cc3333', pending: '#ff9933' };
+const charts = {};
+function stackedBar(id, labels, series) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id).getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: Object.entries(STATUS_COLORS).map(([k, color]) => ({ label: k.toUpperCase(), data: series[k], backgroundColor: color })) },
+        options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } },
+    });
+}
+function renderCharts(data) {
+    document.getElementById('summaryCards').innerHTML = `
+        <div class="summary-card total"><div class="summary-card-value">${data.summary.total}</div><div class="summary-card-label">Total Records</div></div>
+        <div class="summary-card ok"><div class="summary-card-value">${data.summary.ok}</div><div class="summary-card-label">OK</div></div>
+        <div class="summary-card ng"><div class="summary-card-value">${data.summary.ng}</div><div class="summary-card-label">NG</div></div>
+        <div class="summary-card pending"><div class="summary-card-value">${data.summary.pending}</div><div class="summary-card-label">Pending</div></div>`;
+    if (charts.timeSeriesChart) charts.timeSeriesChart.destroy();
+    charts.timeSeriesChart = new Chart(document.getElementById('timeSeriesChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: data.time_series.labels,
+            datasets: Object.entries(STATUS_COLORS).map(([k, color]) => ({ label: k.toUpperCase(), data: data.time_series[k], borderColor: color, backgroundColor: color + '22', tension: 0.3 })),
+        },
+        options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } },
+    });
+    stackedBar('machineChart', data.machine_breakdown.machines, data.machine_breakdown);
+    stackedBar('modelChart', data.model_breakdown.models, data.model_breakdown);
+}
+window.onclick = function (event) {
+    if (event.target === document.getElementById('chartModal')) closeChartModal();
+};
+</script>
+{% endblock %}

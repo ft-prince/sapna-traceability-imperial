@@ -1,0 +1,412 @@
+{% extends 'dashboard/base.html' %}
+{% load machine_filters %}
+{% block title %}Dashboard - SAPNA Traceability - Imperial{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 1.5rem; color: var(--brand-deep);">
+    Production Line Machines
+    <span id="connectionStatus" style="font-size: 0.8rem; margin-left: 1rem;">
+        <span class="status-indicator status-active"></span> LIVE
+    </span>
+</h2>
+
+<div class="machine-groups-container" style="margin-bottom: 2rem;">
+    <div class="machine-groups-header" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <button class="group-button active" onclick="filterMachineGroup('all')" data-group="all">
+            <span class="group-icon">🏭</span><span class="group-name">All Machines</span><span class="group-count" id="count-all">0</span>
+        </button>
+        <button class="group-button" onclick="filterMachineGroup('inspection')" data-group="inspection">
+            <span class="group-icon">📷</span><span class="group-name">Camera Inspection</span><span class="group-count" id="count-inspection">0</span>
+        </button>
+        <button class="group-button" onclick="filterMachineGroup('auto')" data-group="auto">
+            <span class="group-icon">⚙️</span><span class="group-name">Autofatash</span><span class="group-count" id="count-auto">0</span>
+        </button>
+        <button class="group-button" onclick="filterMachineGroup('helium')" data-group="helium">
+            <span class="group-icon">🎈</span><span class="group-name">Helium</span><span class="group-count" id="count-helium">0</span>
+        </button>
+    </div>
+</div>
+
+<div class="machine-grid" id="machineGrid">
+    {% for machine in machines %}
+    <div class="machine-grid-card" id="machine-card-{{ machine.machine_id }}"
+         data-machine-group="{{ machine.machine_id|get_machine_group }}"
+         onclick="openMachineModal('{{ machine.machine_id }}', '{{ machine.display_name }}')">
+
+        <div class="machine-grid-header" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div class="machine-grid-title" style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="status-indicator {% if machine.is_active %}status-active{% else %}status-inactive{% endif %}"></span>
+                    <span style="font-size: 1.1rem; font-weight: 600;">{{ machine.display_name }}</span>
+                </div>
+                <span class="machine-type-badge type-{{ machine.type }}">{{ machine.op_code }}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--dark-gray); padding-left: 1.5rem;">
+                <span style="opacity: 0.8;">🌐</span>
+                <span style="font-family: 'Courier New', monospace;">{{ machine.ip }}</span>
+                <span style="opacity: 0.6;">|</span>
+                <span style="opacity: 0.8;">{{ machine.name }}</span>
+            </div>
+        </div>
+
+        <div class="machine-data-section" data-machine-id="{{ machine.machine_id }}">
+            {% if machine.latest_record %}{% with r=machine.latest_record %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--light-gray);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0.5rem; background: linear-gradient(135deg, #2e3192 0%, #5c5fd0 100%); border-radius: 6px;">
+                    <span style="color: white; font-size: 0.75rem; font-weight: 600;">🏷️ MODEL</span>
+                    <span style="color: white; font-size: 0.85rem; font-weight: 700;">{{ r.model_name }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--dark-gray); font-size: 0.85rem;">Latest QR:</span>
+                    <strong style="font-size: 0.85rem;">{{ r.qr_code }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span style="color: var(--dark-gray); font-size: 0.85rem;">📅 Date:</span>
+                    <span style="font-size: 0.85rem; font-weight: 500;" data-timestamp-date="{{ r.prep_timestamp }}"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--dark-gray); font-size: 0.85rem;">🕐 Time:</span>
+                    <span style="font-size: 0.85rem; font-weight: 500;" data-timestamp-time="{{ r.prep_timestamp }}"></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="color: var(--dark-gray); font-size: 0.85rem;">Status:</span>
+                    {% if r.post_status == 'OK' %}<span class="status-badge status-ok" style="font-size: 0.8rem;">✅ OK</span>
+                    {% elif r.post_status == 'NG' %}<span class="status-badge status-ng" style="font-size: 0.8rem;">❌ NG</span>
+                    {% else %}<span class="status-badge status-inprogress" style="font-size: 0.8rem;">⏳ PENDING</span>{% endif %}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--dark-gray); font-size: 0.85rem;">⬅️ Prev Machine:</span>
+                    {% if r.previous_machine_status == 'OK' %}<span class="status-badge status-ok" style="font-size: 0.75rem;">✅ OK</span>
+                    {% elif r.previous_machine_status == 'NG' %}<span class="status-badge status-ng" style="font-size: 0.75rem;">❌ NG</span>
+                    {% else %}<span style="font-size: 0.8rem; color: #f57c00; font-weight: 700;">{{ r.previous_machine_status }}</span>{% endif %}
+                </div>
+            </div>
+            {% endwith %}{% else %}
+            <div style="margin-top: 1rem; color: var(--dark-gray); font-style: italic; text-align: center;">No data available</div>
+            {% endif %}
+        </div>
+
+        <div class="machine-counts-section" data-machine-id="{{ machine.machine_id }}" style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-around; gap: 0.5rem;">
+                <div class="count-tile" style="flex: 1; text-align: center; padding: 0.5rem; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 6px;">
+                    <div style="font-size: 0.7rem; color: #2e7d32; font-weight: 600;">✅ OK</div>
+                    <div class="count-ok" style="font-size: 1.25rem; font-weight: 800; color: #1b5e20;">{{ machine.counts.ok }}</div>
+                </div>
+                <div class="count-tile" style="flex: 1; text-align: center; padding: 0.5rem; background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border-radius: 6px;">
+                    <div style="font-size: 0.7rem; color: #c62828; font-weight: 600;">❌ NG</div>
+                    <div class="count-ng" style="font-size: 1.25rem; font-weight: 800; color: #b71c1c;">{{ machine.counts.ng }}</div>
+                </div>
+                <div class="count-tile" style="flex: 1; text-align: center; padding: 0.5rem; background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); border-radius: 6px;">
+                    <div style="font-size: 0.7rem; color: #ef6c00; font-weight: 600;">⏳ PENDING</div>
+                    <div class="count-pending" style="font-size: 1.25rem; font-weight: 800; color: #e65100;">{{ machine.counts.pending }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="machine-status-section" data-machine-id="{{ machine.machine_id }}" style="margin-top: 1rem; font-size: 0.9rem;">
+            {% if machine.is_active %}<span style="color: var(--success-green); font-weight: 600;">● ACTIVE</span>
+            {% else %}<span style="color: var(--danger-red); font-weight: 600;">● INACTIVE</span>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div id="machineModal" class="modal">
+    <div class="modal-content" style="max-width: 100%; width: 95%; height: 97%">
+        <span class="modal-close" onclick="closeMachineModal()">&times;</span>
+        <h2 id="machineModalTitle">Machine Details</h2>
+        <div class="modal-body">
+            <div id="machineModalContent">
+                <div style="text-align: center; padding: 2rem;"><div style="font-size: 2rem;">⏳</div><p>Loading machine data...</p></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.machine-groups-container { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.group-button { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1rem 1.5rem; background: white; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; min-width: 120px; }
+.group-button:hover { border-color: var(--brand); transform: translateY(-2px); }
+.group-button.active { background: var(--brand); border-color: var(--brand); color: white; }
+.group-button.active .group-count { background: white; color: var(--brand); }
+.group-icon { font-size: 1.5rem; }
+.group-name { font-size: 0.85rem; font-weight: 600; text-align: center; }
+.group-count { background: var(--light-gray); color: var(--brand-deep); padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+.machine-grid-card.hidden { display: none !important; }
+.modal-table th, .modal-table td { padding: 8px; border: 1px solid #ddd; text-align: center; }
+.record-detail { display: none; background: #f8f9fa; }
+.record-detail.active { display: table-row; }
+.record-detail td { text-align: left; }
+.detail-chip { display: inline-block; margin: 0.25rem 1rem 0.25rem 0; font-size: 0.85rem; }
+.detail-chip b { color: var(--brand); }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentMachineId = null;
+let dashboardEventSource = null;
+let machineEventSource = null;
+// Full record list shown in the modal. The fetch loads the whole history; the
+// SSE stream carries only the newest rows, which are merged in (never replace).
+let currentMachineRecords = [];
+const RECONNECT_MS = 5000;
+
+const GROUPS = [['camera_inspection', 'inspection'], ['autofatash', 'auto'], ['helium', 'helium']];
+function getMachineGroup(machineId) {
+    const hit = GROUPS.find(([needle]) => machineId.includes(needle));
+    return hit ? hit[1] : 'other';
+}
+function filterMachineGroup(group) {
+    document.querySelectorAll('.group-button').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-group="${group}"]`).classList.add('active');
+    document.querySelectorAll('.machine-grid-card').forEach(card => {
+        card.classList.toggle('hidden', group !== 'all' && card.dataset.machineGroup !== group);
+    });
+}
+function updateGroupCounts() {
+    const counts = { all: 0 };
+    document.querySelectorAll('.machine-grid-card').forEach(card => {
+        counts.all++;
+        const g = card.dataset.machineGroup;
+        counts[g] = (counts[g] || 0) + 1;
+    });
+    document.querySelectorAll('.group-count').forEach(el => {
+        el.textContent = counts[el.id.replace('count-', '')] || 0;
+    });
+}
+
+// Server always sends naive ISO-8601 ('' when unparseable) - never a raw machine string.
+function parseIso(ts) {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+}
+function formatDate(ts) {
+    const d = parseIso(ts);
+    return d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+}
+function formatTime(ts) {
+    const d = parseIso(ts);
+    return d ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : '-';
+}
+function formatAllTimestamps() {
+    document.querySelectorAll('[data-timestamp-date]').forEach(el => el.textContent = formatDate(el.dataset.timestampDate));
+    document.querySelectorAll('[data-timestamp-time]').forEach(el => el.textContent = formatTime(el.dataset.timestampTime));
+}
+
+function statusBadge(status, size) {
+    const s = `style="font-size: ${size || '0.8rem'};"`;
+    if (status === 'OK') return `<span class="status-badge status-ok" ${s}>✅ OK</span>`;
+    if (status === 'NG') return `<span class="status-badge status-ng" ${s}>❌ NG</span>`;
+    return `<span class="status-badge status-inprogress" ${s}>⏳ PENDING</span>`;
+}
+function prevBadge(status) {
+    if (status === 'OK' || status === 'NG') return statusBadge(status, '0.75rem');
+    return `<span style="font-size: 0.8rem; color: #f57c00; font-weight: 700;">${status || '-'}</span>`;
+}
+function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ---------------- dashboard stream ----------------
+function initDashboardStream() {
+    if (dashboardEventSource) dashboardEventSource.close();
+    dashboardEventSource = new EventSource('/stream/dashboard/');
+    dashboardEventSource.onmessage = function (event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'update' && data.machines) updateDashboardMachines(data.machines);
+        } catch (err) {
+            console.error('Error parsing dashboard update:', err);
+        }
+    };
+    dashboardEventSource.onerror = function () {
+        setConnection('connectionStatus', false);
+        setTimeout(initDashboardStream, RECONNECT_MS);
+    };
+    dashboardEventSource.onopen = () => setConnection('connectionStatus', true);
+}
+function setConnection(elId, connected) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = connected
+        ? '<span class="status-indicator status-active"></span> LIVE'
+        : '<span class="status-indicator status-inactive"></span> Reconnecting...';
+}
+
+function latestRecordHTML(r) {
+    if (!r) return '<div style="margin-top: 1rem; color: var(--dark-gray); font-style: italic; text-align: center;">No data available</div>';
+    const row = (label, value) => `<div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;"><span style="color: var(--dark-gray); font-size: 0.85rem;">${label}</span><span style="font-size: 0.85rem; font-weight: 500;">${value}</span></div>`;
+    return `
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--light-gray);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding: 0.5rem; background: linear-gradient(135deg, #2e3192 0%, #5c5fd0 100%); border-radius: 6px;">
+                <span style="color: white; font-size: 0.75rem; font-weight: 600;">🏷️ MODEL</span>
+                <span style="color: white; font-size: 0.85rem; font-weight: 700;">${escapeHtml(r.model_name)}</span>
+            </div>
+            ${row('Latest QR:', `<strong>${escapeHtml(r.qr_code)}</strong>`)}
+            ${row('📅 Date:', formatDate(r.prep_timestamp))}
+            ${row('🕐 Time:', formatTime(r.prep_timestamp))}
+            ${row('Status:', statusBadge(r.post_status))}
+            ${row('⬅️ Prev Machine:', prevBadge(r.previous_machine_status))}
+        </div>`;
+}
+
+function updateDashboardMachines(machines) {
+    machines.forEach(machine => {
+        const card = document.getElementById(`machine-card-${machine.machine_id}`);
+        if (!card) return;
+        card.style.boxShadow = '0 0 15px rgba(46, 49, 146, 0.4)';
+        setTimeout(() => { card.style.boxShadow = ''; }, 1000);
+
+        card.querySelector('.machine-grid-header .status-indicator').className =
+            `status-indicator ${machine.is_active ? 'status-active' : 'status-inactive'}`;
+        card.querySelector('.machine-data-section').innerHTML = latestRecordHTML(machine.latest_record);
+
+        // All three tiles are re-rendered so PENDING never vanishes on the first live refresh.
+        const counts = machine.counts || {};
+        card.querySelector('.count-ok').textContent = counts.ok ?? 0;
+        card.querySelector('.count-ng').textContent = counts.ng ?? 0;
+        card.querySelector('.count-pending').textContent = counts.pending ?? 0;
+
+        card.querySelector('.machine-status-section').innerHTML = machine.is_active
+            ? '<span style="color: var(--success-green); font-weight: 600;">● ACTIVE</span>'
+            : '<span style="color: var(--danger-red); font-weight: 600;">● INACTIVE</span>';
+    });
+}
+
+// ---------------- modal ----------------
+function mergeMachineRecords(incoming) {
+    if (!Array.isArray(incoming)) return currentMachineRecords;
+    // prep_id is unique per machine; a seen row is updated in place (Pending -> OK/NG).
+    const byPrepId = new Map(currentMachineRecords.map(r => [r.prep_id, r]));
+    const fresh = [];
+    incoming.forEach(record => {
+        if (byPrepId.has(record.prep_id)) Object.assign(byPrepId.get(record.prep_id), record);
+        else fresh.push(record);
+    });
+    currentMachineRecords = fresh.concat(currentMachineRecords);
+    currentMachineRecords.sort((a, b) => (a.sort_priority - b.sort_priority) || (b.prep_id - a.prep_id));
+    return currentMachineRecords;
+}
+
+function openMachineModal(machineId, machineName) {
+    currentMachineId = machineId;
+    currentMachineRecords = [];
+    document.getElementById('machineModalTitle').innerHTML =
+        `${escapeHtml(machineName)} <span id="modalConnectionStatus" style="font-size: 0.8rem; margin-left: 1rem;"><span class="status-indicator status-active"></span> Connecting...</span>`;
+    document.getElementById('machineModal').style.display = 'flex';
+    fetch(`/api/machine/${machineId}/`)
+        .then(r => r.json())
+        .then(data => {
+            currentMachineRecords = Array.isArray(data.records) ? data.records : [];
+            renderMachineData(data);
+            initMachineStream(machineId);
+        })
+        .catch(() => {
+            document.getElementById('machineModalContent').innerHTML =
+                '<div style="text-align: center; padding: 2rem; color: var(--danger-red);"><div style="font-size: 2rem;">⚠️</div><p>Error loading machine data</p></div>';
+        });
+}
+function closeMachineModal() {
+    document.getElementById('machineModal').style.display = 'none';
+    currentMachineId = null;
+    if (machineEventSource) { machineEventSource.close(); machineEventSource = null; }
+}
+function initMachineStream(machineId) {
+    if (machineEventSource) machineEventSource.close();
+    machineEventSource = new EventSource(`/stream/machine/${machineId}/`);
+    machineEventSource.onmessage = function (event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type !== 'update') return;
+            data.records = mergeMachineRecords(data.records);
+            data.total = data.records.length;
+            renderMachineData(data);
+        } catch (err) {
+            console.error('Error parsing machine update:', err);
+        }
+    };
+    machineEventSource.onerror = function () {
+        setConnection('modalConnectionStatus', false);
+        setTimeout(() => { if (currentMachineId === machineId) initMachineStream(machineId); }, RECONNECT_MS);
+    };
+    machineEventSource.onopen = () => setConnection('modalConnectionStatus', true);
+}
+function toggleRecordDetail(prepId) {
+    const row = document.getElementById(`record-detail-${prepId}`);
+    if (row) row.classList.toggle('active');
+}
+function recordDetailHTML(r) {
+    const chip = (label, value) => `<span class="detail-chip"><b>${label}:</b> ${escapeHtml(value ?? '-')}</span>`;
+    return chip('Prep ID', r.prep_id) + chip('Machine', r.prep_machine_name) + chip('QR', r.qr_code)
+        + chip('Model', r.model_name) + chip('Loaded', `${formatDate(r.prep_timestamp)} ${formatTime(r.prep_timestamp)}`)
+        + chip('Prev machine', r.previous_machine_status)
+        + chip('Post ID', r.post_id) + chip('Judged', r.post_timestamp ? `${formatDate(r.post_timestamp)} ${formatTime(r.post_timestamp)}` : '-')
+        + chip('Result', r.post_status)
+        + (r.batch_id ? chip('Batch', r.batch_id) + chip('Batch size', r.batch_size) + chip('Slot', r.slot_no) : '');
+}
+function renderMachineData(data) {
+    const content = document.getElementById('machineModalContent');
+    const records = data.records || [];
+    if (records.length === 0) {
+        content.innerHTML = '<div style="text-align: center; padding: 2rem;"><div style="font-size: 2rem;">📊</div><h3>No data available</h3><p>Waiting for production data...</p></div>';
+        return;
+    }
+    const counts = data.counts || {};
+    let html = `
+        <div style="display: flex; gap: 1rem; margin-bottom: 0.75rem; font-size: 0.9rem; color: var(--dark-gray);">
+            <span>Rows: <b id="modalTotal">${data.total ?? records.length}</b></span>
+            <span>Recent: ✅ ${counts.ok ?? 0} · ❌ ${counts.ng ?? 0} · ⏳ ${counts.pending ?? 0}</span>
+            <span>${data.is_active ? '● ACTIVE' : '● INACTIVE'}</span>
+        </div>
+        <div class="data-table-container" style="max-height: 85vh; overflow-y: auto; padding: 0;">
+        <table class="data-table modal-table" id="modalTable" style="width: 100%; border-collapse: collapse;">
+            <thead style="position: sticky; top: 0; z-index: 10; background: white;">
+                <tr>
+                    <th colspan="4" style="background: rgba(46, 49, 146, 0.12);">Preprocessing</th>
+                    <th style="background: rgba(200, 200, 200, 0.3);">QR Code</th>
+                    <th style="background: rgba(102, 126, 234, 0.15);">🏷️ Model</th>
+                    <th style="background: rgba(255, 193, 7, 0.1);">⬅️ Prev Machine</th>
+                    <th colspan="4" style="background: rgba(0, 168, 204, 0.1);">Postprocessing</th>
+                </tr>
+                <tr>
+                    <th>ID</th><th>Date</th><th>Time</th><th>Status</th>
+                    <th>QR</th><th>Model</th><th>Prev Status</th>
+                    <th>ID</th><th>Date</th><th>Time</th><th>Status</th>
+                </tr>
+            </thead><tbody>`;
+    records.forEach(r => {
+        html += `
+            <tr class="modal-record clickable-row ${r.status_class}" data-prep-id="${r.prep_id}" onclick="toggleRecordDetail(${r.prep_id})">
+                <td>${r.prep_id}</td><td><small>${formatDate(r.prep_timestamp)}</small></td><td><small>${formatTime(r.prep_timestamp)}</small></td>
+                <td><span class="status-badge status-ok">✅ ${r.prep_status || 'OK'}</span></td>
+                <td><strong>${escapeHtml(r.qr_code)}</strong></td>
+                <td><span style="background: linear-gradient(135deg, #2e3192 0%, #5c5fd0 100%); color: white; padding: 0.25rem 0.5rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600;">${escapeHtml(r.model_name)}</span></td>
+                <td>${prevBadge(r.previous_machine_status)}</td>
+                <td>${r.post_id ?? '-'}</td><td><small>${formatDate(r.post_timestamp)}</small></td><td><small>${formatTime(r.post_timestamp)}</small></td>
+                <td class="post-status">${statusBadge(r.post_status)}</td>
+            </tr>
+            <tr class="record-detail" id="record-detail-${r.prep_id}"><td colspan="11">${recordDetailHTML(r)}</td></tr>`;
+    });
+    content.innerHTML = html + '</tbody></table></div>';
+}
+
+window.onclick = function (event) {
+    if (event.target === document.getElementById('machineModal')) closeMachineModal();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMachineModal(); });
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.machine-grid-card').forEach(card => {
+        card.dataset.machineGroup = getMachineGroup(card.id.replace('machine-card-', ''));
+    });
+    formatAllTimestamps();
+    updateGroupCounts();
+    initDashboardStream();
+});
+window.addEventListener('beforeunload', () => {
+    if (dashboardEventSource) dashboardEventSource.close();
+    if (machineEventSource) machineEventSource.close();
+});
+</script>
+{% endblock %}

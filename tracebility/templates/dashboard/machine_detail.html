@@ -1,0 +1,73 @@
+{% extends 'dashboard/base.html' %}
+{% block title %}{{ display_name }} - SAPNA Traceability - Imperial{% endblock %}
+
+{% block content %}
+<div class="back-link"><a href="{% url 'dashboard:dashboard' %}" style="color: var(--brand); text-decoration: none;">← Back to Dashboard</a></div>
+
+<div class="machine-card" style="margin-top: 1rem;">
+    <div class="machine-header">
+        <div class="machine-title">
+            <span class="status-indicator {% if is_active %}status-active{% else %}status-inactive{% endif %}"></span>
+            {{ display_name|default:'Machine' }} <small style="font-size: 0.9rem; opacity: 0.85;">{{ op_code }} · {{ ip }}</small>
+        </div>
+        <div class="machine-actions">
+            {% if not error %}<a href="{% url 'dashboard:export_machine_data' machine_id %}" class="action-button">Export CSV</a>{% endif %}
+            <button onclick="location.reload()" class="action-button">Refresh</button>
+        </div>
+    </div>
+
+    <div class="data-table-container">
+        {% if error %}
+        <div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>{{ error }}</h3></div>
+        {% elif not records %}
+        <div class="empty-state"><div class="empty-state-icon">📊</div><h3>No data available</h3><p>Waiting for production data...</p></div>
+        {% else %}
+        <p style="color: var(--dark-gray); margin-bottom: 0.5rem;">{{ records|length }} records</p>
+        <table class="data-table" id="data-table">
+            <thead>
+                <tr>
+                    <th colspan="3" style="background: rgba(46, 49, 146, 0.12); text-align: center;">Preprocessing</th>
+                    <th rowspan="2" style="background: var(--light-gray); vertical-align: middle;">QR Code</th>
+                    <th rowspan="2" style="background: var(--light-gray); vertical-align: middle;">Model</th>
+                    <th rowspan="2" style="background: var(--light-gray); vertical-align: middle;">Prev Machine</th>
+                    <th colspan="3" style="background: rgba(0, 168, 204, 0.1); text-align: center;">Postprocessing</th>
+                </tr>
+                <tr>
+                    <th>ID</th><th>Timestamp</th><th>Status</th>
+                    <th>ID</th><th>Timestamp</th><th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr class="{{ record.status_class }}">
+                    <td>{{ record.prep_id }}</td>
+                    <td data-ts="{{ record.prep_timestamp }}"></td>
+                    <td><span class="status-badge status-ok">{{ record.prep_status }}</span></td>
+                    <td><strong>{{ record.qr_code }}</strong></td>
+                    <td>{{ record.model_name }}</td>
+                    <td>{{ record.previous_machine_status }}</td>
+                    <td>{{ record.post_id|default:"-" }}</td>
+                    <td data-ts="{{ record.post_timestamp|default:'' }}"></td>
+                    <td>
+                        {% if record.post_status == "OK" %}<span class="status-badge status-ok">✅ OK</span>
+                        {% elif record.post_status == "NG" %}<span class="status-badge status-ng">❌ NG</span>
+                        {% else %}<span class="status-badge status-inprogress">⏳ Pending</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Server sends naive ISO; render in the browser's locale, '-' when missing.
+document.querySelectorAll('[data-ts]').forEach(td => {
+    const d = td.dataset.ts ? new Date(td.dataset.ts) : null;
+    td.textContent = d && !isNaN(d.getTime()) ? d.toLocaleString('en-GB') : '-';
+});
+</script>
+{% endblock %}

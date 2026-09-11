@@ -1,0 +1,259 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Login - SAPNA Traceability{% endblock %}
+
+{% block content %}
+<style>
+  .login-wrapper {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+
+  .login-container {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px var(--shadow);
+    overflow: hidden;
+    max-width: 450px;
+    width: 100%;
+    animation: slideUp 0.5s ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .login-header {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+    color: var(--white);
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+
+  .login-header h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .login-header p {
+    font-size: 0.95rem;
+    opacity: 0.95;
+  }
+
+  .login-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    font-size: 1.8rem;
+  }
+
+  .login-body {
+    padding: 2.5rem 2rem;
+  }
+
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 0.95rem;
+  }
+
+  .form-group input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--medium-gray);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s;
+    background: var(--white);
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--brand-light);
+    box-shadow: 0 0 0 3px rgba(46, 49, 146, 0.1);
+  }
+
+  .form-group input::placeholder {
+    color: var(--dark-gray);
+    opacity: 0.6;
+  }
+
+  .form-actions {
+    margin-top: 2rem;
+  }
+
+  .login-button {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-accent) 100%);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px var(--shadow);
+  }
+
+  .login-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--shadow);
+  }
+
+  .login-button:active {
+    transform: translateY(0);
+  }
+
+  .form-footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--medium-gray);
+  }
+
+  .form-footer a {
+    color: var(--brand);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s;
+  }
+
+  .form-footer a:hover {
+    color: var(--brand-accent);
+    text-decoration: underline;
+  }
+
+  .error-messages {
+    background: rgba(204, 51, 51, 0.1);
+    border-left: 4px solid var(--danger-red);
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+  }
+
+  .error-messages ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .error-messages li {
+    color: var(--danger-red);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .help-text {
+    font-size: 0.85rem;
+    color: var(--dark-gray);
+    margin-top: 0.25rem;
+  }
+
+  .remember-me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .remember-me input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .remember-me label {
+    margin: 0;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  @media (max-width: 768px) {
+    .login-container {
+      margin: 1rem;
+    }
+
+    .login-header {
+      padding: 2rem 1.5rem;
+    }
+
+    .login-body {
+      padding: 2rem 1.5rem;
+    }
+  }
+</style>
+
+<div class="login-wrapper">
+  <div class="login-container">
+    <div class="login-header">
+      <div class="login-icon">🔐</div>
+      <h2>Welcome Back</h2>
+      <p>Sign in to access the SAPNA Traceability System</p>
+    </div>
+
+    <div class="login-body">
+      {% if form.errors %}
+        <div class="error-messages">
+          <ul>
+            {% for field in form %}
+              {% for error in field.errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        
+        {% for field in form %}
+          <div class="form-group">
+            <label for="{{ field.id_for_label }}">
+              {{ field.label }}
+            </label>
+            {{ field }}
+            {% if field.help_text %}
+              <div class="help-text">{{ field.help_text }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="form-actions">
+          <button type="submit" class="login-button">
+            Sign In
+          </button>
+        </div>
+
+        
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

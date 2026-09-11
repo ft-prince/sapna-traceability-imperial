@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "imperial",
+      "runtimeExecutable": "./venv/bin/python",
+      "runtimeArgs": ["manage.py", "runserver", "8004"],
+      "port": 8004
+    }
+  ]
+}
